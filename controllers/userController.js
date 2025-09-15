@@ -58,10 +58,16 @@ const login = async (req, res) => {
     const { email, password } = req.body;
 
     // Validation
-    if (!email || !password) {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email and password are required'
+        message: 'Email are required'
+      });
+    }
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'password are required'
       });
     }
 
