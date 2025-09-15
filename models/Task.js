@@ -53,22 +53,22 @@ class Task {
         due_date_from,
         due_date_to,
         sort_by = 'created_at',
-        sort_order = 'DESC'
+        sort_order = 'ASC'
       } = options;
 
       const offset = (page - 1) * limit;
       let query = `
-        SELECT 
-          t.*,
-          creator.full_name as creator_name,
-          creator.email as creator_email,
-          assignee.full_name as assignee_name,
-          assignee.email as assignee_email
-        FROM tasks t
-        LEFT JOIN users creator ON t.created_by = creator.id
-        LEFT JOIN users assignee ON t.assigned_to = assignee.id
-        WHERE 1=1
-      `;
+      SELECT 
+        t.*,
+        creator.full_name as creator_name,
+        creator.email as creator_email,
+        assignee.full_name as assignee_name,
+        assignee.email as assignee_email
+      FROM tasks t
+      LEFT JOIN users creator ON t.created_by = creator.id
+      LEFT JOIN users assignee ON t.assigned_to = assignee.id
+      WHERE 1=1
+    `;
       let params = [];
 
       // Apply filters
@@ -94,7 +94,7 @@ class Task {
 
       if (search) {
         query += ' AND (t.title LIKE ? OR t.description LIKE ?)';
-        params.push(`%${search}%`, `%${search}%`);
+        params.push(`%${String(search)}%`, `%${String(search)}%`);
       }
 
       if (due_date_from) {
@@ -111,22 +111,20 @@ class Task {
       const validSortColumns = ['created_at', 'updated_at', 'due_date', 'priority', 'status', 'title'];
       const sortColumn = validSortColumns.includes(sort_by) ? sort_by : 'created_at';
       const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-      
-      query += ` ORDER BY t.${sortColumn} ${sortDirection}`;
-      query += ' LIMIT ? OFFSET ?';
-      params.push(limit, offset);
+
+      // ✅ Directly interpolate limit/offset (avoid placeholders)
+      query += ` ORDER BY t.${sortColumn} ${sortDirection} LIMIT ${parseInt(limit, 10)} OFFSET ${parseInt(offset, 10)}`;
 
       const [tasks] = await promisePool.execute(query, params);
 
       // Get total count for pagination
       let countQuery = `
-        SELECT COUNT(*) as total 
-        FROM tasks t
-        WHERE 1=1
-      `;
+      SELECT COUNT(*) as total 
+      FROM tasks t
+      WHERE 1=1
+    `;
       let countParams = [];
 
-      // Apply same filters for count
       if (status) {
         countQuery += ' AND t.status = ?';
         countParams.push(status);
@@ -149,7 +147,7 @@ class Task {
 
       if (search) {
         countQuery += ' AND (t.title LIKE ? OR t.description LIKE ?)';
-        countParams.push(`%${search}%`, `%${search}%`);
+        countParams.push(`%${String(search)}%`, `%${String(search)}%`);
       }
 
       if (due_date_from) {
@@ -233,100 +231,101 @@ class Task {
   }
 
   // Get tasks by user (assigned or created by)
-  static async findByUser(userId, options = {}) {
-    try {
-      const {
-        page = 1,
-        limit = 10,
-        status,
-        priority,
-        type = 'all' // 'created', 'assigned', 'all'
-      } = options;
+static async findByUser(userId, options = {}) {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      priority,
+      type = 'all' // 'created', 'assigned', 'all'
+    } = options;
 
-      const offset = (page - 1) * limit;
-      let query = `
-        SELECT 
-          t.*,
-          creator.full_name as creator_name,
-          creator.email as creator_email,
-          assignee.full_name as assignee_name,
-          assignee.email as assignee_email
-        FROM tasks t
-        LEFT JOIN users creator ON t.created_by = creator.id
-        LEFT JOIN users assignee ON t.assigned_to = assignee.id
-        WHERE 
-      `;
-      let params = [];
+    const offset = (page - 1) * limit;
+    let query = `
+      SELECT 
+        t.*,
+        creator.full_name as creator_name,
+        creator.email as creator_email,
+        assignee.full_name as assignee_name,
+        assignee.email as assignee_email
+      FROM tasks t
+      LEFT JOIN users creator ON t.created_by = creator.id
+      LEFT JOIN users assignee ON t.assigned_to = assignee.id
+      WHERE 
+    `;
+    let params = [];
 
-      // Filter by user relationship
-      if (type === 'created') {
-        query += 't.created_by = ?';
-        params.push(userId);
-      } else if (type === 'assigned') {
-        query += 't.assigned_to = ?';
-        params.push(userId);
-      } else {
-        query += '(t.created_by = ? OR t.assigned_to = ?)';
-        params.push(userId, userId);
-      }
-
-      // Apply additional filters
-      if (status) {
-        query += ' AND t.status = ?';
-        params.push(status);
-      }
-
-      if (priority) {
-        query += ' AND t.priority = ?';
-        params.push(priority);
-      }
-
-      query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
-      params.push(limit, offset);
-
-      const [tasks] = await promisePool.execute(query, params);
-
-      // Get total count
-      let countQuery = 'SELECT COUNT(*) as total FROM tasks WHERE ';
-      let countParams = [];
-
-      if (type === 'created') {
-        countQuery += 'created_by = ?';
-        countParams.push(userId);
-      } else if (type === 'assigned') {
-        countQuery += 'assigned_to = ?';
-        countParams.push(userId);
-      } else {
-        countQuery += '(created_by = ? OR assigned_to = ?)';
-        countParams.push(userId, userId);
-      }
-
-      if (status) {
-        countQuery += ' AND status = ?';
-        countParams.push(status);
-      }
-
-      if (priority) {
-        countQuery += ' AND priority = ?';
-        countParams.push(priority);
-      }
-
-      const [countResult] = await promisePool.execute(countQuery, countParams);
-      const total = countResult[0].total;
-
-      return {
-        tasks,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      };
-    } catch (error) {
-      throw error;
+    // Filter by user relationship
+    if (type === 'created') {
+      query += 't.created_by = ?';
+      params.push(userId);
+    } else if (type === 'assigned') {
+      query += 't.assigned_to = ?';
+      params.push(userId);
+    } else {
+      query += '(t.created_by = ? OR t.assigned_to = ?)';
+      params.push(userId, userId);
     }
+
+    // Apply additional filters
+    if (status) {
+      query += ' AND t.status = ?';
+      params.push(status);
+    }
+
+    if (priority) {
+      query += ' AND t.priority = ?';
+      params.push(priority);
+    }
+
+    // ✅ interpolate limit/offset instead of placeholders
+    query += ` ORDER BY t.created_at ASC LIMIT ${parseInt(limit, 10)} OFFSET ${parseInt(offset, 10)}`;
+
+    const [tasks] = await promisePool.execute(query, params);
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM tasks WHERE ';
+    let countParams = [];
+
+    if (type === 'created') {
+      countQuery += 'created_by = ?';
+      countParams.push(userId);
+    } else if (type === 'assigned') {
+      countQuery += 'assigned_to = ?';
+      countParams.push(userId);
+    } else {
+      countQuery += '(created_by = ? OR assigned_to = ?)';
+      countParams.push(userId, userId);
+    }
+
+    if (status) {
+      countQuery += ' AND status = ?';
+      countParams.push(status);
+    }
+
+    if (priority) {
+      countQuery += ' AND priority = ?';
+      countParams.push(priority);
+    }
+
+    const [countResult] = await promisePool.execute(countQuery, countParams);
+    const total = countResult[0].total;
+
+    return {
+      tasks,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  } catch (error) {
+    throw error;
   }
+}
+
 
   // Get task statistics
   static async getStatistics(userId = null) {

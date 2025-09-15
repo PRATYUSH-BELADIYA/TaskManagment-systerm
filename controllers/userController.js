@@ -1,6 +1,10 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { generateToken } = require('../utils/jwt');
+const welcomeEmail = require('../utils/register');
+const loginSuccessEmail = require('../utils/login');
+const { sendEmail } = require('../utils/Nodemailer');
+
 
 // User registration
 const register = async (req, res) => {
@@ -37,6 +41,12 @@ const register = async (req, res) => {
 
     // Get created user (without password)
     const user = await User.findById(userId);
+
+    await sendEmail({
+      to: email,
+      subject: 'Welcome to Our Platform!',
+      html: welcomeEmail(full_name)
+    });
 
     res.status(201).json({
       success: true,
@@ -115,6 +125,13 @@ const login = async (req, res) => {
         user: userWithoutPassword
       }
     });
+
+    await sendEmail({
+      to: email,
+      subject: 'Welcome to Our Platform!',
+      html: loginSuccessEmail(user.full_name)
+    });
+
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({

@@ -158,6 +158,17 @@ const updateTask = async (req, res) => {
       }
     }
 
+    if (due_date) {
+    const dueDateObj = new Date(due_date);
+      if (dueDateObj < new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Due date cannot be in the past'
+        });
+      }
+    }
+
+
     // Update task
     const updateData = {};
     if (title) updateData.title = title;
@@ -368,7 +379,7 @@ const updateTaskStatus = async (req, res) => {
         task.assigned_to !== req.user.id) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied : you not have permission to update this task'
       });
     }
 
