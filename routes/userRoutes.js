@@ -6,6 +6,8 @@ const {
   getProfile,
   updateProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
   getAllUsers,
   getUserById,
   updateUser,
@@ -17,6 +19,9 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 // Public routes (no authentication required)
 router.post('/register', register);
 router.post('/login', login);
+
+router.post('/forgot_password', forgotPassword);  
+router.post('/reset_password', resetPassword);
 
 // Protected routes (authentication required)
 router.use(authenticateToken);

@@ -1,8 +1,10 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 const { generateToken } = require('../utils/jwt');
 const welcomeEmail = require('../utils/register');
 const loginSuccessEmail = require('../utils/login');
+const forgotPasswordEmail = require('../utils/forgto');
 const { sendEmail } = require('../utils/Nodemailer');
 
 
@@ -266,6 +268,81 @@ const changePassword = async (req, res) => {
   }
 };
 
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Generate a short-lived JWT (15 min)
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+    console.log("token", token);
+
+    await sendEmail({
+      to: email,
+      subject: 'Password Reset',
+      html: forgotPasswordEmail(user.full_name, token)
+    });
+
+    res.json({
+      success: true,
+      message: 'Password reset link sent to email'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, new_password } = req.body;
+
+    if (!token || !new_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token and new password are required'
+      });
+    }
+
+    // Verify token
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    }
+
+    // Find user
+    const user = await User.findById(payload.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Hash and update password
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await User.update(user.id, { password: hashedPassword });
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // Get all users (Admin only)
 const getAllUsers = async (req, res) => {
   try {
@@ -473,6 +550,8 @@ module.exports = {
   getProfile,
   updateProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
   getAllUsers,
   getUserById,
   updateUser,
