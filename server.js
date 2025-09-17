@@ -3,6 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const { initializeDatabase } = require('./config/database');
 const { initializeSchema } = require('./config/schema');
+const session = require("express-session");
+const passport = require("passport");
+const GitHubStrategy = require("passport-github2").Strategy;
+const User = require('./models/User');
+
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
@@ -15,6 +20,60 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+  })
+);
+
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Serialize/deserialize
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+  const user = await User.findById(id);
+  done(null, user);
+});
+
+// GitHub strategy
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: "http://localhost:3000/api/users/github/callback",
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = profile.emails?.[0]?.value || `${profile.username}@github.com`;
+        const full_name = profile.displayName || profile.username;
+
+        // Check if user exists
+        let user = await User.findByEmail(email);
+
+        if (!user) {
+          // Create new user without password
+          const newUserId = await User.create({
+            email,
+            password: "", // empty since GitHub auth
+            full_name,
+            role: "user",
+          });
+          user = await User.findById(newUserId);
+        }
+
+        return done(null, user);
+      } catch (err) {
+        return done(err, null);
+      }
+    }
+  )
+);
+
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -39,6 +98,8 @@ app.get('/', (req, res) => {
         'GET /api/users/profile': 'Get user profile (authenticated)',
         'PUT /api/users/profile': 'Update user profile (authenticated)',
         'PUT /api/users/change-password': 'Change password (authenticated)',
+        'POST /api/users/forgot-password': 'Forgot password (public)',
+        'POST /api/users/reset-password': 'Reset password (public)',
         'GET /api/users': 'Get all users (admin only)',
         'GET /api/users/:id': 'Get user by ID (admin only)',
         'PUT /api/users/:id': 'Update user (admin only)',
@@ -58,6 +119,9 @@ app.get('/', (req, res) => {
       }
     }
   });
+});
+app.get("/git", (req, res) => {
+  res.send(`<h2>Welcome</h2><a href="http://localhost:3000/api/users/github">Login with GitHub</a>`);
 });
 
 // API Routes

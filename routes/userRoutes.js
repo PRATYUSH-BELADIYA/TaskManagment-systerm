@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const passport = require("passport");
+const { generateToken } = require("../utils/jwt");
+
 const {
   register,
   login,
@@ -22,6 +25,23 @@ router.post('/login', login);
 
 router.post('/forgot_password', forgotPassword);  
 router.post('/reset_password', resetPassword);
+router.get("/github", passport.authenticate("github", { scope: ["user:email"] }));
+
+router.get("/github/callback",passport.authenticate("github", { failureRedirect: "/" }),
+  async (req, res) => {const user = req.user;
+
+  const token = generateToken({userId: user.id,email: user.email,role: user.role,});
+
+    res.json({
+      success: true,
+      message: "GitHub login successful",
+      data: {
+        token,
+        user,
+      },
+    });
+  }
+);
 
 // Protected routes (authentication required)
 router.use(authenticateToken);
