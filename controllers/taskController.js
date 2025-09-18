@@ -1,3 +1,4 @@
+const notify = require('../models/notification');
 const Task = require('../models/Task');
 const User = require('../models/User');
 
@@ -39,6 +40,12 @@ const createTask = async (req, res) => {
 
     // Get created task with user details
     const task = await Task.findById(taskId);
+
+    const notification = await notify.createNotification({
+      user_id: created_by,
+      message: `${created_by} has created a new task: ${task.title}`,
+      type: 'task'
+    });
 
     res.status(201).json({
       success: true,
@@ -190,6 +197,11 @@ const updateTask = async (req, res) => {
     // Get updated task
     const task = await Task.findById(id);
 
+    const notification = await notify.createNotification({
+      user_id: req.user.id || req.user.role === 'admin',
+      message: `Task "${task.title}" has been updated by ${req.user.full_name}.`,
+      type: 'task_update'
+    });
     res.json({
       success: true,
       message: 'Task updated successfully',
@@ -235,6 +247,12 @@ const deleteTask = async (req, res) => {
         message: 'Delete failed'
       });
     }
+
+    const notification = await notify.createNotification({
+      user_id: req.user.id || req.user.role === 'admin',
+      message: `Task "${task.title}" has been deleted by ${req.user.full_name}.`,
+      type: 'task_delete'
+    });
 
     res.json({
       success: true,

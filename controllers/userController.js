@@ -6,6 +6,7 @@ const welcomeEmail = require('../utils/register');
 const loginSuccessEmail = require('../utils/login');
 const forgotPasswordEmail = require('../utils/forgto');
 const { sendEmail } = require('../utils/Nodemailer');
+const  notify = require('../models/notification');
 
 
 // User registration
@@ -40,6 +41,12 @@ const register = async (req, res) => {
       full_name,
       role: role || 'user'
     });
+
+    // const Notifications = await User.createNotification({
+    //   user_id: userId,
+    //   message: `Sign up successful for ${full_name}`,
+    //   type: 'Registration'
+    // });
 
     // Get created user (without password)
     const user = await User.findById(userId);
@@ -119,6 +126,12 @@ const login = async (req, res) => {
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
+    const Notifications = await notify.createNotification({
+      user_id: user.id,
+      message: `user${user.email} try to login`,
+      type: 'Login'
+    });
+
     res.json({
       success: true,
       message: 'Login successful',
@@ -147,7 +160,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,

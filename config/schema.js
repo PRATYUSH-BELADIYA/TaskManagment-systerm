@@ -35,6 +35,15 @@ const createTables = async () => {
       )
     `;
 
+    const createNotificationsTable = `
+    CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    message TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+    `;
+
     // Create task_comments table for task comments/notes
     const createTaskCommentsTable = `
       CREATE TABLE IF NOT EXISTS task_comments (
@@ -69,6 +78,9 @@ const createTables = async () => {
 
     await promisePool.execute(createTasksTable);
     console.log('Tasks table created successfully');
+
+    await promisePool.execute(createNotificationsTable);
+    console.log('Notifications table created successfully');
 
     await promisePool.execute(createTaskCommentsTable);
     console.log('Task comments table created successfully');
