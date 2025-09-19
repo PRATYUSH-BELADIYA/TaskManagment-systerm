@@ -12,6 +12,7 @@ const User = require('./models/User');
 // Import routes
 const userRoutes = require('./routes/userRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const notifyRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -89,7 +90,8 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       users: '/api/users',
-      tasks: '/api/tasks'
+      tasks: '/api/tasks',
+      notifications: '/api/notifications'
     },
     documentation: {
       users: {
@@ -127,6 +129,7 @@ app.get("/git", (req, res) => {
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/notifications', notifyRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -162,7 +165,8 @@ app.use((req, res) => {
     available_routes: {
       health: 'GET /',
       users: '/api/users',
-      tasks: '/api/tasks'
+      tasks: '/api/tasks',
+      notifications: '/api/notifications'
     }
   });
 });
@@ -195,6 +199,7 @@ const startServer = async () => {
       console.log('API Endpoints:');
       console.log('👥 Users: http://localhost:' + PORT + '/api/users');
       console.log('📋 Tasks: http://localhost:' + PORT + '/api/tasks');
+      console.log('🔔 Notifications: http://localhost:' + PORT + '/api/notifications');
       console.log('');
       console.log('Ready to accept requests! 🎉');
     });

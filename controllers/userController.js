@@ -128,7 +128,7 @@ const login = async (req, res) => {
 
     const Notifications = await notify.createNotification({
       user_id: user.id,
-      message: `user${user.email} try to login`,
+      message: `user : ${user.email} try to login`,
       type: 'Login'
     });
 
